@@ -13,8 +13,7 @@ defineSuite([
         'DataSources/ConstantProperty',
         'DataSources/EntityCollection',
         'RectangularSensorGraphics',
-        'Specs/createScene',
-        'Specs/destroyScene'
+        'Specs/createScene'
     ], function(
         RectangularSensorVisualizer,
         Cartesian3,
@@ -29,8 +28,7 @@ defineSuite([
         ConstantProperty,
         EntityCollection,
         RectangularSensorGraphics,
-        createScene,
-        destroyScene) {
+        createScene) {
     "use strict";
     /*global jasmine,describe,xdescribe,it,xit,expect,beforeEach,afterEach,beforeAll,afterAll,spyOn,runs,waits,waitsFor*/
 
@@ -42,7 +40,7 @@ defineSuite([
     });
 
     afterAll(function() {
-        destroyScene(scene);
+        scene.destroyForSpecs(scene);
     });
 
     afterEach(function() {
@@ -118,6 +116,7 @@ defineSuite([
 
         var testObject = entityCollection.getOrCreateEntity('test');
         testObject.addProperty('rectangularSensor');
+        testObject.show = true;
         testObject.position = new ConstantProperty(new Cartesian3(1234, 5678, 9101112));
         testObject.orientation = new ConstantProperty(new Quaternion(0, 0, Math.sin(CesiumMath.PI_OVER_FOUR), Math.cos(CesiumMath.PI_OVER_FOUR)));
 
@@ -129,7 +128,7 @@ defineSuite([
         rectangularSensor.showIntersection = new ConstantProperty(true);
         rectangularSensor.radius = new ConstantProperty(123.5);
         rectangularSensor.show = new ConstantProperty(true);
-        rectangularSensor.lateralSurfaceMaterial = ColorMaterialProperty.fromColor(Color.WHITE);
+        rectangularSensor.lateralSurfaceMaterial = ColorMaterialProperty(Color.WHITE);
         visualizer.update(time);
 
         expect(scene.primitives.length).toEqual(1);
@@ -142,9 +141,17 @@ defineSuite([
         expect(p.show).toEqual(testObject.rectangularSensor.show.getValue(time));
         expect(p.lateralSurfaceMaterial.uniforms).toEqual(testObject.rectangularSensor.lateralSurfaceMaterial.getValue(time));
 
+        testObject.show = false;
+        visualizer.update(time);
+        expect(p.show).toBe(false);
+
+        testObject.show = true;
+        visualizer.update(time);
+        expect(p.show).toBe(true);
+
         rectangularSensor.show.setValue(false);
         visualizer.update(time);
-        expect(p.show).toEqual(false);
+        expect(p.show).toBe(false);
     });
 
     it('clear removes rectangularSensors.', function() {

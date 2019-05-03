@@ -13,8 +13,7 @@ defineSuite([
         'DataSources/ConstantProperty',
         'CustomPatternSensorGraphics',
         'DataSources/EntityCollection',
-        'Specs/createScene',
-        'Specs/destroyScene'
+        'Specs/createScene'
     ], function(
         CustomPatternSensorVisualizer,
         Cartesian3,
@@ -29,8 +28,7 @@ defineSuite([
         ConstantProperty,
         CustomPatternSensorGraphics,
         EntityCollection,
-        createScene,
-        destroyScene) {
+        createScene) {
     "use strict";
     /*global jasmine,describe,xdescribe,it,xit,expect,beforeEach,afterEach,beforeAll,afterAll,spyOn,runs,waits,waitsFor*/
 
@@ -42,7 +40,7 @@ defineSuite([
     });
 
     afterAll(function() {
-        destroyScene(scene);
+        scene.destroyForSpecs(scene);
     });
 
     afterEach(function() {
@@ -116,6 +114,7 @@ defineSuite([
 
         var testObject = entityCollection.getOrCreateEntity('test');
         testObject.addProperty('customPatternSensor');
+        testObject.show = true;
         testObject.position = new ConstantProperty(new Cartesian3(1234, 5678, 9101112));
         testObject.orientation = new ConstantProperty(new Quaternion(0, 0, Math.sin(CesiumMath.PI_OVER_FOUR), Math.cos(CesiumMath.PI_OVER_FOUR)));
 
@@ -126,7 +125,7 @@ defineSuite([
         customPatternSensor.showIntersection = new ConstantProperty(true);
         customPatternSensor.radius = new ConstantProperty(123.5);
         customPatternSensor.show = new ConstantProperty(true);
-        customPatternSensor.lateralSurfaceMaterial = ColorMaterialProperty.fromColor(Color.WHITE);
+        customPatternSensor.lateralSurfaceMaterial = ColorMaterialProperty(Color.WHITE);
         visualizer.update(time);
 
         expect(scene.primitives.length).toEqual(1);
@@ -139,9 +138,18 @@ defineSuite([
         expect(p.show).toEqual(testObject.customPatternSensor.show.getValue(time));
         expect(p.lateralSurfaceMaterial.uniforms).toEqual(testObject.customPatternSensor.lateralSurfaceMaterial.getValue(time));
 
+        testObject.show = false;
+        visualizer.update(time);
+        expect(p.show).toBe(false);
+
+        testObject.show = true;
+        visualizer.update(time);
+        expect(p.show).toBe(true);
+
         customPatternSensor.show.setValue(false);
         visualizer.update(time);
-        expect(p.show).toEqual(false);
+        expect(p.show).toBe(false);
+
     });
 
     it('clear removes customPatternSensors.', function() {

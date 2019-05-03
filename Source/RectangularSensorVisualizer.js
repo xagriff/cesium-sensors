@@ -63,7 +63,7 @@ define([
         this._hash = {};
         this._entitiesToVisualize = new AssociativeArray();
 
-        this._onCollectionChanged(entityCollection, entityCollection.entities, [], []);
+        this._onCollectionChanged(entityCollection, entityCollection.values, [], []);
     };
 
     /**
@@ -91,7 +91,8 @@ define([
             var position;
             var orientation;
             var data = hash[entity.id];
-            var show = entity.isAvailable(time) && Property.getValueOrDefault(rectangularSensorGraphics._show, time, true);
+            var show = entity.isShowing && entity.isAvailable(time) && Property.getValueOrDefault(rectangularSensorGraphics._show, time, true);
+
 
             if (show) {
                 position = Property.getValueOrUndefined(entity._position, time, cachedPosition);

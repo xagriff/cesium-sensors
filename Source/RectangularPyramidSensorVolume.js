@@ -172,9 +172,9 @@ define([
         }
     });
 
-    RectangularPyramidSensorVolume.prototype.update = function(context, frameState, commandList) {
-        this._customSensor.update(context, frameState, commandList);
-    };
+    RectangularPyramidSensorVolume.prototype.update = function(frameState) {
+        this._customSensor.update(frameState);
+    }
 
     RectangularPyramidSensorVolume.prototype.isDestroyed = function() {
         return false;
