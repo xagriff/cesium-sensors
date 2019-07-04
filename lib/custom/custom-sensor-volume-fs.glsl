@@ -61,9 +61,9 @@ vec4 shade(bool isOnBoundary)
     return getColor(u_sensorRadius, v_positionEC);
 }
 
-float ellipsoidSurfaceFunction(czm_ellipsoid ellipsoid, vec3 point)
+float ellipsoidSurfaceFunction(vec3 point)
 {
-    vec3 scaled = ellipsoid.inverseRadii * point;
+    vec3 scaled = czm_ellipsoidInverseRadii * point;
     return dot(scaled, scaled) - 1.0;
 }
 
@@ -72,8 +72,7 @@ void main()
     vec3 sensorVertexWC = czm_model[3].xyz;      // (0.0, 0.0, 0.0) in model coordinates
     vec3 sensorVertexEC = czm_modelView[3].xyz;  // (0.0, 0.0, 0.0) in model coordinates
 
-    czm_ellipsoid ellipsoid = czm_getWgs84EllipsoidEC();
-    float ellipsoidValue = ellipsoidSurfaceFunction(ellipsoid, v_positionWC);
+    float ellipsoidValue = ellipsoidSurfaceFunction(v_positionWC);
 
     // Occluded by the ellipsoid?
 	if (!u_showThroughEllipsoid)
@@ -86,7 +85,7 @@ void main()
 	    }
 
 	    // Discard if in the sensor's shadow
-	    if (inSensorShadow(sensorVertexWC, ellipsoid, v_positionWC))
+	    if (inSensorShadow(sensorVertexWC, v_positionWC))
 	    {
 	        discard;
 	    }
