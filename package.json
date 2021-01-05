@@ -23,7 +23,7 @@
     "electron": "1.6.5",
     "event-stream": "^3.3.4",
     "globby": "^6.1.0",
-    "gulp": "^3.9.0",
+    "gulp": "^4.0.2",
     "gulp-concat": "^2.6.1",
     "gulp-if": "^2.0.2",
     "gulp-order": "^1.1.1",
@@ -40,14 +40,14 @@
     "karma-requirejs": "^1.1.0",
     "lodash.assign": "^4.2.0",
     "merge-stream": "^1.0.1",
-    "run-sequence": "^1.2.2",
     "through2": "^2.0.3"
   },
   "scripts": {
     "build": "gulp build",
     "start": "gulp serve",
     "test": "gulp test",
-    "ci": "gulp ci"
+    "ci": "gulp ci",
+    "gulp": "gulp"
   },
   "xo": {
     "globals": [

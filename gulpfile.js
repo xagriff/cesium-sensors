@@ -15,7 +15,6 @@ var del = require('del');
 var gulpif = require('gulp-if');
 var order = require('gulp-order');
 var requirejsOptimize = require('gulp-requirejs-optimize');
-var runSequence = require('run-sequence');
 var size = require('gulp-size');
 var xo = require('gulp-xo');
 
@@ -29,17 +28,17 @@ var runLint = function(src) {
 		.pipe(xo());
 };
 
-gulp.task('lint', function() {
+gulp.task('lint', () => {
 	return runLint(['lib/**/*.js', 'gulp/**/*.js', 'gulpfile.js']);
 });
 
-gulp.task('shaders', function() {
+gulp.task('shaders', () => {
 	return gulp.src('lib/**/*.glsl')
 		.pipe(processShaders())
 		.pipe(gulp.dest('.tmp/shaders'));
 });
 
-gulp.task('create-main-js', function() {
+gulp.task('create-main-js', () => {
 	return gulp.src(['lib/**/*.js'])
 		.pipe(gulpif('!main.js', generateShims()))
 		.pipe(order([
@@ -63,7 +62,7 @@ function optimize(options) {
 		.pipe(requirejsOptimize(options));
 }
 
-gulp.task('scripts', ['create-main-js', 'shaders'], function() {
+gulp.task('scripts', gulp.series('create-main-js', 'shaders', () => {
 	var copyright = getCopyrightHeaders();
 
 	var requirejsOptions = {
@@ -109,11 +108,11 @@ gulp.task('scripts', ['create-main-js', 'shaders'], function() {
 
 	return es.merge(unminified, minified)
 		.pipe(gulp.dest('dist'));
-});
+}));
 
-gulp.task('clean', del.bind(null, ['coverage', '.tmp', 'dist']));
+gulp.task('clean', () => del(['coverage', '.tmp', 'dist']));
 
-gulp.task('test-lint', function() {
+gulp.task('test-lint', () => {
 	return runLint(['test/**/*.js']);
 });
 
@@ -128,46 +127,41 @@ function test(done, options) {
 	server.start();
 }
 
-gulp.task('test', ['test-lint'], function(done) {
+gulp.task('test', gulp.series('test-lint', done => {
 	test(done);
-});
+}));
 
-gulp.task('test-ci', ['test-lint'], function(done) {
+gulp.task('test-ci', gulp.series('test-lint', done => {
 	test(done, {
 		browsers: ['Electron'],
 		client: {
 			args: [true]
 		}
 	});
-});
+}));
 
-gulp.task('serve', function(done) {
-	runSequence('build', 'run', 'watch', done);
-});
+gulp.task('build', gulp.series('lint', 'scripts', () => {
+	return gulp.src('dist/**/*')
+		.pipe(size({ title: 'build', gzip: true }));
+}));
 
-gulp.task('run', function(done) {
+gulp.task('build-reload', gulp.series('build', reload));
+
+gulp.task('run', done => {
 	browserSync.init({
 		server: '.'
 	}, done);
 });
 
-gulp.task('watch', function() {
+gulp.task('watch', done => {
 	gulp.watch(['examples/**/*.html', 'examples/**/*.czml'], reload);
-	gulp.watch(['lib/**/*.glsl'], ['build-reload']);
-	gulp.watch(['lib/**/*.js'], ['build-reload']);
+	gulp.watch(['lib/**/*.glsl'], gulp.series('build-reload'));
+	gulp.watch(['lib/**/*.js'], gulp.series('build-reload'));
+	done();
 });
 
-gulp.task('build-reload', ['build'], reload);
+gulp.task('serve', gulp.series('build', 'run', 'watch', done => done()));
 
-gulp.task('build', ['lint', 'scripts'], function() {
-	return gulp.src('dist/**/*')
-		.pipe(size({ title: 'build', gzip: true }));
-});
+gulp.task('ci', gulp.series('lint', 'test-ci', 'build', done => done()));
 
-gulp.task('ci', function(done) {
-	runSequence('lint', 'test-ci', 'build', done);
-});
-
-gulp.task('default', function(done) {
-	runSequence('clean', 'build', done);
-});
+gulp.task('default', gulp.series('clean', 'build', done => done()));
