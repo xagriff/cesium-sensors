@@ -101,6 +101,31 @@
 		viewer.scene.primitives.add(customSensor);
 	}
 
+	function addConicSensor() {
+		viewer.scene.primitives.removeAll();
+		var position = Cesium.Cartesian3.fromDegrees(0, 0, 1000000);
+		var heading = Cesium.Math.toRadians(0);
+		var pitch = Cesium.Math.toRadians(90);
+		var roll = Cesium.Math.toRadians(0);
+		var hpr = new Cesium.HeadingPitchRoll(heading, pitch, roll);
+		var orientation = Cesium.Transforms.headingPitchRollQuaternion(position, hpr);
+		const entity = new Cesium.Entity({
+			name: "Test",
+			position,
+			orientation,
+		});
+		entity.addProperty("conicSensor");
+		entity.conicSensor = new CesiumSensorVolumes.ConicSensorGraphics({
+			radius: 10000000,
+			innerHalfAngle: Cesium.Math.toRadians(0),
+			outerHalfAngle: Cesium.Math.toRadians(15),
+			lateralSurfaceMaterial: Cesium.Color.GOLD.withAlpha(0.15),
+			intersectionColor: Cesium.Color.GOLD.withAlpha(0.3),
+			intersectionWidth: 1,
+		});
+		viewer.entities.add(entity);
+	}
+
 	function addToolbarButton(text, onclick) {
 		var button = document.createElement('button');
 		button.type = 'button';
@@ -112,6 +137,7 @@
 
 	addToolbarButton('Rectangular', addRectangularSensor);
 	addToolbarButton('Custom', addCustomSensor);
+	addToolbarButton('Conic', addConicSensor);
 
 	addRectangularSensor();
 </script>
