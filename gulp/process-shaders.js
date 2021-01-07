@@ -32,11 +32,14 @@ module.exports = function() {
 				} else if (c === '*') {
 					while (i < contents.length) {
 						c = contents.charAt(++i);
+						// eslint-disable-next-line max-depth
 						if (c === '*') {
 							c = contents.charAt(++i);
+							// eslint-disable-next-line max-depth
 							while (c === '*') {
 								c = contents.charAt(++i);
 							}
+							// eslint-disable-next-line max-depth
 							if (c === '/') {
 								c = contents.charAt(++i);
 								break;
