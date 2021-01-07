@@ -27,7 +27,7 @@ vec4 getColor(float sensorRadius, vec3 pointEC)
     materialInput.normalEC = u_normalDirection * normalEC;
     
     czm_material material = czm_getMaterial(materialInput);
-    return mix(czm_phong(normalize(positionToEyeEC), material), vec4(material.diffuse, material.alpha), 0.4);
+    return mix(czm_phong(normalize(positionToEyeEC), material, czm_lightDirectionEC), vec4(material.diffuse, material.alpha), 0.4);
 }
 
 bool isOnBoundary(float value, float epsilon)
