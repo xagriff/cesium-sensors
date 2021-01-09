@@ -17,6 +17,8 @@
     "requirejs-text": "^2.0.15"
   },
   "devDependencies": {
+    "@babel/core": "^7.12.10",
+    "@babel/preset-env": "^7.12.11",
     "almond": "^0.3.3",
     "browser-sync": "^2.18.8",
     "del": "^2.2.2",
@@ -24,6 +26,7 @@
     "event-stream": "^3.3.4",
     "globby": "^6.1.0",
     "gulp": "^4.0.2",
+    "gulp-babel": "^8.0.0",
     "gulp-concat": "^2.6.1",
     "gulp-if": "^2.0.2",
     "gulp-order": "^1.1.1",
