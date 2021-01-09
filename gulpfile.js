@@ -3,165 +3,167 @@
 var fs = require('fs');
 var path = require('path');
 
-var es = require('event-stream');
-var globby = require('globby');
 var gulp = require('gulp');
-var assign = require('lodash.assign');
-
-// load plugins
-var browserSync = require('browser-sync').create();
-var concat = require('gulp-concat');
+var through = require('through2');
 var del = require('del');
-var gulpif = require('gulp-if');
-var order = require('gulp-order');
-var requirejsOptimize = require('gulp-requirejs-optimize');
-var size = require('gulp-size');
 var xo = require('gulp-xo');
+var glsl = require('gulp-glsl');
+
+var rollup = require('rollup');
+var { string } = require('rollup-plugin-string');
+var { terser } = require('rollup-plugin-terser');
+
+var browserSync = require('browser-sync').create();
 
 var reload = browserSync.reload;
 
-var generateShims = require('./gulp/generate-shims');
-var processShaders = require('./gulp/process-shaders');
-
-var runLint = function(src) {
+function runLint(src) {
 	return gulp.src(src)
 		.pipe(xo());
-};
-
-gulp.task('lint', () => {
+}
+function lint() {
 	return runLint(['lib/**/*.js', 'gulp/**/*.js', 'gulpfile.js']);
-});
+}
+exports.lint = lint;
 
-gulp.task('shaders', () => {
+function clean() {
+	return del(['coverage', '.tmp', 'dist']);
+}
+exports.clean = clean;
+
+function preprocessShaders() {
 	return gulp.src('lib/**/*.glsl')
-		.pipe(processShaders())
-		.pipe(gulp.dest('.tmp/shaders'));
-});
-
-gulp.task('create-main-js', () => {
-	return gulp.src(['lib/**/*.js'])
-		.pipe(gulpif('!main.js', generateShims()))
-		.pipe(order([
-			'!main.js',
-			'main.js'
-		]))
-		.pipe(concat('main.js'))
+		.pipe(glsl({ format: 'raw', ext: '.glsl' }))
 		.pipe(gulp.dest('.tmp'));
-});
+}
+
+function preprocessJs() {
+	return gulp.src(['lib/**/*.js'])
+		.pipe(gulp.dest('.tmp'));
+}
 
 function getCopyrightHeaders() {
-	var copyrightHeader = fs.readFileSync('lib/copyright-header.js').toString();
-	var shaderCopyrightHeader = fs.readFileSync('.tmp/shaders/shader-copyright-header.js').toString();
-
-	return copyrightHeader + '\n' + shaderCopyrightHeader;
+	return fs.readFileSync('lib/copyright-header.js').toString();
 }
 
-function optimize(options) {
-	var source = path.join(options.baseUrl, options.include) + '.js';
-	return gulp.src(source)
-		.pipe(requirejsOptimize(options));
+async function buildEs() {
+	const bundle = await rollup.rollup({
+		input: '.tmp/cesium-sensor-volumes.js',
+		plugins: [
+			string({
+				include: '**/*.glsl'
+			})
+		],
+		external: id => /Cesium/.test(id)
+	});
+
+	await bundle.write({
+		file: 'dist/cesium-sensor-volumes.es.js',
+		format: 'es',
+		banner: getCopyrightHeaders()
+	});
+	await bundle.write({
+		file: 'dist/cesium-sensor-volumes.es.min.js',
+		format: 'es',
+		plugins: [terser({
+			format: {
+				comments: function(node, comment) {
+					if (comment.type === 'comment2') {
+						return /Copyright/i.test(comment.value);
+					}
+				}
+			}
+		})],
+		banner: getCopyrightHeaders()
+	});
+}
+exports.buildEs = gulp.series(clean, gulp.parallel(preprocessShaders, preprocessJs), buildEs);
+
+function generateShims() {
+	// Search for Cesium modules and add shim modules that pull from the Cesium global
+	return gulp.src(['./dist/cesium-sensor-volumes.es.js'])
+		.pipe(through.obj(function(file, _, cb) {
+			if (file.isBuffer()) {
+				var cesiumRequireRegex = /import (\w*) from 'Cesium\/\w*\/(\w*)'/;
+				const output = file.contents.toString().split('\n').map(line => {
+					const match = cesiumRequireRegex.exec(line);
+					if (match) {
+						return `const ${match[1]} = Cesium['${match[2]}'];`;
+					}
+					return line;
+				});
+				file.contents = Buffer.from(output.join('\n'));
+			}
+			cb(null, file);
+		}))
+		.pipe(gulp.dest('.tmp/shimmed'));
 }
 
-gulp.task('scripts', gulp.series('create-main-js', 'shaders', () => {
-	var copyright = getCopyrightHeaders();
-
-	var requirejsOptions = {
-		name: '../node_modules/almond/almond',
-
-		wrap: {
-			start: copyright + '(function() {',
-			end: '})();'
-		},
-
-		useStrict: true,
-
-		inlineText: true,
-		stubModules: ['text'],
-
-		skipModuleInsertion: true,
-
-		baseUrl: 'lib',
-
-		include: '../.tmp/main',
-		paths: {
-			text: '../node_modules/requirejs-text/text'
-		}
-	};
-
-	var unminified = optimize(assign({}, requirejsOptions, {
-		out: 'cesium-sensor-volumes.js',
-		optimize: 'none'
-	}));
-
-	var minifiedOptions = assign({}, requirejsOptions, {
-		out: 'cesium-sensor-volumes.min.js',
-		optimize: 'uglify2'
+async function buildUmd() {
+	const bundle = await rollup.rollup({
+		input: '.tmp/shimmed/cesium-sensor-volumes.es.js'
 	});
-
-	// Use minified versions of shaders
-	globby.sync(['lib/**/*.glsl']).forEach(function(shader) {
-		shader = path.relative('lib', shader).replace(/\\/g, '/').replace(/\.glsl$/, '');
-		minifiedOptions.paths[shader] = path.join('../.tmp/shaders', shader);
+	await bundle.write({
+		file: 'dist/cesium-sensor-volumes.js',
+		name: 'CesiumSensorVolumes',
+		format: 'umd'
 	});
+	await bundle.write({
+		file: 'dist/cesium-sensor-volumes.min.js',
+		name: 'CesiumSensorVolumes',
+		plugins: [terser({
+			format: {
+				comments: function(node, comment) {
+					if (comment.type === 'comment2') {
+						return /Copyright/i.test(comment.value);
+					}
+				}
+			}
+		})],
+		format: 'umd'
+	});
+}
+exports.build = gulp.series(exports.buildEs, generateShims, buildUmd);
 
-	var minified = optimize(minifiedOptions);
+exports.buildReload = gulp.series(exports.build, reload);
 
-	return es.merge(unminified, minified)
-		.pipe(gulp.dest('dist'));
-}));
+function run(cb) {
+	browserSync.init({
+		server: '.'
+	}, cb);
+}
 
-gulp.task('clean', () => del(['coverage', '.tmp', 'dist']));
+function watch(cb) {
+	gulp.watch(['examples/**/*.html', 'examples/**/*.czml'], reload);
+	gulp.watch(['lib/**/*.glsl'], exports.buildReload);
+	gulp.watch(['lib/**/*.js'], exports.buildReload);
+	cb();
+}
+exports.serve = gulp.series(exports.build, run, watch);
 
-gulp.task('test-lint', () => {
+function lintTest() {
 	return runLint(['test/**/*.js']);
-});
+}
 
 function test(done, options) {
 	var Server = require('karma').Server;
 
-	var server = new Server(assign({
+	var server = new Server(Object.assign({
 		configFile: path.join(__dirname, '/test/karma.conf.js'),
 		singleRun: true
 	}, options), done);
 
 	server.start();
 }
+exports.test = gulp.series(lintTest, test);
 
-gulp.task('test', gulp.series('test-lint', done => {
-	test(done);
-}));
-
-gulp.task('test-ci', gulp.series('test-lint', done => {
+function testCI(done) {
 	test(done, {
 		browsers: ['Electron'],
 		client: {
 			args: [true]
 		}
 	});
-}));
-
-gulp.task('build', gulp.series('lint', 'scripts', () => {
-	return gulp.src('dist/**/*')
-		.pipe(size({ title: 'build', gzip: true }));
-}));
-
-gulp.task('build-reload', gulp.series('build', reload));
-
-gulp.task('run', done => {
-	browserSync.init({
-		server: '.'
-	}, done);
-});
-
-gulp.task('watch', done => {
-	gulp.watch(['examples/**/*.html', 'examples/**/*.czml'], reload);
-	gulp.watch(['lib/**/*.glsl'], gulp.series('build-reload'));
-	gulp.watch(['lib/**/*.js'], gulp.series('build-reload'));
-	done();
-});
-
-gulp.task('serve', gulp.series('build', 'run', 'watch', done => done()));
-
-gulp.task('ci', gulp.series('lint', 'test-ci', 'build', done => done()));
-
-gulp.task('default', gulp.series('clean', 'build', done => done()));
+}
+exports.testCI = gulp.series(lintTest, testCI);
+exports.ci = gulp.series(lint, testCI, exports.build);
